@@ -44,9 +44,9 @@ With the unreleased `hideOnBlur` option, use Electron's `pop-up-menu` level to a
 const mb = menubar({ hideOnBlur: true });
 
 mb.on('after-create-window', () => {
-	if (process.platform === 'win32') {
-		mb.window.setAlwaysOnTop(true, 'pop-up-menu');
-	}
+  if (process.platform === 'win32') {
+    mb.window.setAlwaysOnTop(true, 'pop-up-menu');
+  }
 });
 ```
 
