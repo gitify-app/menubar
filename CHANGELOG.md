@@ -4,14 +4,13 @@ All notable changes to this project will be documented in this file. Releases ar
 
 ## [11.0.0](https://github.com/gitify-app/electron-menubar/compare/v10.3.0...v11.0.0) (2026-09-05)
 
-
 ### ⚠ BREAKING CHANGES
 
-* manage popup focus across platforms ([#185](https://github.com/gitify-app/electron-menubar/issues/185))
+- Popups now dismiss on click-away by default, including always-on-top windows. Use `hideOnBlur: false` to keep a popup open and on top. Remove app-side Windows stacking and DevTools focus workarounds; menubar manages them on every platform. See the [10.x migration guide](https://github.com/gitify-app/electron-menubar/tree/v11.0.0#migrating-from-10x).
 
 ### 🧼 Code Refactoring
 
-* manage popup focus across platforms ([#185](https://github.com/gitify-app/electron-menubar/issues/185)) ([7c5416a](https://github.com/gitify-app/electron-menubar/commit/7c5416ae9efbd4b090375a7894cbc28d4c85516b))
+- manage popup focus across platforms ([#185](https://github.com/gitify-app/electron-menubar/issues/185)) ([7c5416a](https://github.com/gitify-app/electron-menubar/commit/7c5416ae9efbd4b090375a7894cbc28d4c85516b))
 
 ## [10.3.0](https://github.com/gitify-app/electron-menubar/compare/v10.2.1...v10.3.0) (2026-09-05)
 

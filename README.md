@@ -39,7 +39,7 @@
 | Area                          | What this fork adds                                                                                                                                                                                                   |
 | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Windows focus and positioning | Ignores transient blur events immediately after opening, keeps resized windows clear of the taskbar, handles left-side taskbars, and prevents recursive resize events during repositioning.                           |
-| Windows tray overflow         | Raises popups above the hidden-icons panel automatically and still dismisses on click-away. Apps use the same keep-open option on every platform. **Unreleased.**                                                     |
+| Windows tray overflow         | Raises popups above the hidden-icons panel automatically and still dismisses on click-away. Apps use the same keep-open option on every platform. **Available since 11.0.0.**                                         |
 | macOS                         | Opens on the active Space when another app is fullscreen, hides the Dock icon again after Electron's startup race, and ignores tray double-clicks by default to avoid flicker.                                        |
 | Linux tray menus              | Publishes native tray context menus and provides `refreshContextMenu()` to update them after menu items change. Documents native Wayland positioning limits and the XWayland workaround.                              |
 | Window controls               | Built-in `hideOnClose`, `escapeToHide`, configurable tray triggers, global shortcuts, `toggleWindow()`, and `recenterOnTray()`. Closing can hide the window while real quits and updater restarts still work.         |
@@ -62,7 +62,7 @@ Opening DevTools temporarily keeps the popup open. Closing DevTools restores the
 
 #### Migrating from 10.x
 
-These defaults are intended for the next major release. Previously, menubar inferred dismissal from `window.isAlwaysOnTop()`. Use `hideOnBlur: false` for persistent popups instead of `browserWindow.alwaysOnTop: true` or runtime `window.setAlwaysOnTop(true)` calls. `browserWindow.alwaysOnTop` now controls stacking only; it does not disable dismissal. Setting `hideOnBlur: false` also keeps the popup on top on macOS and Linux.
+These defaults apply starting with 11.0.0. Previously, menubar inferred dismissal from `window.isAlwaysOnTop()`. Use `hideOnBlur: false` for persistent popups instead of `browserWindow.alwaysOnTop: true` or runtime `window.setAlwaysOnTop(true)` calls. `browserWindow.alwaysOnTop` now controls stacking only; it does not disable dismissal. Setting `hideOnBlur: false` also keeps the popup on top on macOS and Linux.
 
 Remove Windows `pop-up-menu` workarounds and DevTools focus handlers from apps. Menubar owns stacking during window creation, showing, preference changes, and DevTools transitions. Apps can still customize DevTools dimensions and layout.
 See the [changelog](CHANGELOG.md) for released changes and the [API documentation](#api-documentation) for all options.
