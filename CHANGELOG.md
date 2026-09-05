@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file. Releases are managed by [release-please](https://github.com/googleapis/release-please) from [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [11.0.0](https://github.com/gitify-app/electron-menubar/compare/v10.3.0...v11.0.0) (2026-09-05)
+
+
+### ⚠ BREAKING CHANGES
+
+* manage popup focus across platforms ([#185](https://github.com/gitify-app/electron-menubar/issues/185))
+
+### 🧼 Code Refactoring
+
+* manage popup focus across platforms ([#185](https://github.com/gitify-app/electron-menubar/issues/185)) ([7c5416a](https://github.com/gitify-app/electron-menubar/commit/7c5416ae9efbd4b090375a7894cbc28d4c85516b))
+
 ## [10.3.0](https://github.com/gitify-app/electron-menubar/compare/v10.2.1...v10.3.0) (2026-09-05)
 
 ### 🚀 Features
