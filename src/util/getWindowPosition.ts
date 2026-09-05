@@ -8,16 +8,19 @@ import { screen as electronScreen, type Rectangle, type Tray } from 'electron';
 
 const isLinux = process.platform === 'linux';
 
-const trayToScreenRects = (tray: Tray): [Rectangle, Rectangle] => {
+const trayToScreenRects = (trayBounds: Rectangle): [Rectangle, Rectangle] => {
   // There may be more than one screen, so we need to figure out on which screen our tray icon lives.
-  const { workArea, bounds: screenBounds } = electronScreen.getDisplayMatching(
-    tray.getBounds(),
-  );
+  const { workArea, bounds: screenBounds } =
+    electronScreen.getDisplayMatching(trayBounds);
 
-  workArea.x -= screenBounds.x;
-  workArea.y -= screenBounds.y;
-
-  return [screenBounds, workArea];
+  return [
+    screenBounds,
+    {
+      ...workArea,
+      x: workArea.x - screenBounds.x,
+      y: workArea.y - screenBounds.y,
+    },
+  ];
 };
 
 type TaskbarLocation = 'top' | 'bottom' | 'left' | 'right';
@@ -30,7 +33,43 @@ type TaskbarLocation = 'top' | 'bottom' | 'left' | 'right';
  * @param tray - The Electron Tray instance.
  */
 export function taskbarLocation(tray: Tray): TaskbarLocation {
-  const [screenBounds, workArea] = trayToScreenRects(tray);
+  const trayBounds = tray.getBounds();
+  const [screenBounds, workArea] = trayToScreenRects(trayBounds);
+
+  if (
+    process.platform === 'win32' &&
+    trayBounds.width > 0 &&
+    trayBounds.height > 0
+  ) {
+    // Other appbars also reserve work-area space. The tray's nearest display
+    // edge identifies the taskbar without mistaking a PowerToys dock for it.
+    const x = trayBounds.x + trayBounds.width / 2 - screenBounds.x;
+    const y = trayBounds.y + trayBounds.height / 2 - screenBounds.y;
+    const insets: Record<TaskbarLocation, number> = {
+      top: workArea.y,
+      bottom: screenBounds.height - workArea.y - workArea.height,
+      left: workArea.x,
+      right: screenBounds.width - workArea.x - workArea.width,
+    };
+    let nearest: [TaskbarLocation, number] = [
+      'bottom',
+      Math.abs(screenBounds.height - y),
+    ];
+    const edges: [TaskbarLocation, number][] = [
+      ['top', Math.abs(y)],
+      ['left', Math.abs(x)],
+      ['right', Math.abs(screenBounds.width - x)],
+    ];
+    for (const edge of edges) {
+      // At a corner, prefer the edge that actually reserves work-area space.
+      if (
+        edge[1] < nearest[1] ||
+        (edge[1] === nearest[1] && insets[edge[0]] > insets[nearest[0]])
+      )
+        nearest = edge;
+    }
+    return nearest[0];
+  }
 
   // TASKBAR LEFT
   if (workArea.x > 0) {
