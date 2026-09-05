@@ -1,9 +1,9 @@
 name: Release
 
 on:
-    push:
-        branches:
-            - main
+  push:
+    branches:
+      - main
 
 permissions: {}
 
@@ -11,29 +11,29 @@ permissions: {}
 # reports `release_created` is checked out at an older commit, publishing the
 # previous version number (or nothing at all).
 concurrency:
-    group: release
-    cancel-in-progress: false
+  group: release
+  cancel-in-progress: false
 
 jobs:
-    release-please:
-        name: Release Please
-        runs-on: ubuntu-latest
-        permissions:
-            contents: write
-            pull-requests: write
-        outputs:
-            release_created: ${{ steps.release.outputs.release_created }}
-            tag_name: ${{ steps.release.outputs.tag_name }}
-        steps:
-            - name: Run release-please
-              id: release
-              uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+  release-please:
+    name: Release Please
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+    steps:
+      - name: Run release-please
+        id: release
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
 
-    publish:
-        name: Publish
-        needs: release-please
-        if: ${{ needs.release-please.outputs.release_created == 'true' }}
-        permissions:
-            contents: read
-            id-token: write # for npm OIDC trusted publishing + provenance
-        uses: ./.github/workflows/publish.yml
+  publish:
+    name: Publish
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    permissions:
+      contents: read
+      id-token: write # for npm OIDC trusted publishing + provenance
+    uses: ./.github/workflows/publish.yml

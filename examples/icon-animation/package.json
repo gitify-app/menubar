@@ -1,9 +1,9 @@
 {
   "name": "example-menubar-icon-animation",
   "version": "0.1.0",
+  "private": true,
   "description": "Example menubar electron app",
   "main": "main.js",
-  "private": true,
   "scripts": {
     "start": "electron ."
   }

@@ -1,5 +1,5 @@
 [//]: # "Hey there and thank you for using Menubar's issue tracker!"
-[//]: # "Please fill in these information to describe your issue."
+[//]: # 'Please fill in these information to describe your issue.'
 
 ### Description
 

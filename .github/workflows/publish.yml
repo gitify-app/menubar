@@ -1,41 +1,41 @@
 name: Publish
 
 on:
-    workflow_call:
-    workflow_dispatch:
+  workflow_call:
+  workflow_dispatch:
 
 permissions: {}
 
 jobs:
-    publish:
-        name: Publish to npm
-        runs-on: ubuntu-latest
-        permissions:
-            contents: read
-            id-token: write # for npm OIDC trusted publishing + provenance
+  publish:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # for npm OIDC trusted publishing + provenance
 
-        steps:
-            - name: Checkout
-              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-              with:
-                  persist-credentials: false
-            - name: Setup pnpm
-              uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
-            - name: Setup Node.js
-              uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-              with:
-                  node-version-file: .node-version
-                  registry-url: https://registry.npmjs.org
-                  cache: pnpm
-            - name: Install dependencies
-              run: pnpm install --frozen-lockfile
-            - name: Type check
-              run: pnpm run typecheck
-            - name: Run tests
-              run: pnpm run test
-            - name: Build library
-              run: pnpm run build
-            - name: Publish to npm
-              # Auth + provenance via OIDC trusted publishing (no NPM_TOKEN needed).
-              # Requires the npm package to trust the entry-point workflow (release.yml).
-              run: npm publish --provenance --access public
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Setup pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .node-version
+          registry-url: https://registry.npmjs.org
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Type check
+        run: pnpm run typecheck
+      - name: Run tests
+        run: pnpm run test
+      - name: Build library
+        run: pnpm run build
+      - name: Publish to npm
+        # Auth + provenance via OIDC trusted publishing (no NPM_TOKEN needed).
+        # Requires the npm package to trust the entry-point workflow (release.yml).
+        run: npm publish --provenance --access public
