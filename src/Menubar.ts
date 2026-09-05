@@ -305,6 +305,40 @@ export class Menubar extends EventEmitter {
    */
   setOption<K extends keyof Options>(key: K, value: Options[K]): void {
     this._options[key] = value;
+    if (key === 'hideOnBlur' || key === 'browserWindow') {
+      this.applyWindowFocusBehavior();
+    }
+  }
+
+  private shouldHideOnBlur(): boolean {
+    const win = this._browserWindow;
+    return (
+      !!win &&
+      !win.isDestroyed() &&
+      this._options.hideOnBlur !== false &&
+      !win.webContents.isDevToolsOpened()
+    );
+  }
+
+  private applyWindowFocusBehavior(): void {
+    const win = this._browserWindow;
+    if (!win || win.isDestroyed()) {
+      return;
+    }
+
+    const keepOpen = !this.shouldHideOnBlur();
+    if (this._blurTimeout) {
+      clearTimeout(this._blurTimeout);
+      this._blurTimeout = null;
+    }
+
+    if (process.platform === 'win32') {
+      win.setAlwaysOnTop(true, 'pop-up-menu');
+    } else {
+      win.setAlwaysOnTop(
+        keepOpen || this._options.browserWindow.alwaysOnTop === true,
+      );
+    }
   }
 
   /**
@@ -340,6 +374,7 @@ export class Menubar extends EventEmitter {
     this.positionWindow();
     // Record the show time before `show()` so the blur handler can recognise
     // and ignore the transient blur Windows fires right after (see below).
+    this.applyWindowFocusBehavior();
     this._lastShowTime = Date.now();
     this._browserWindow.show();
     this._isVisible = true;
@@ -620,16 +655,20 @@ export class Menubar extends EventEmitter {
 
     this._positioner = new Positioner(this._browserWindow);
 
+    this.applyWindowFocusBehavior();
+    this._browserWindow.webContents.on('devtools-opened', () => {
+      this.applyWindowFocusBehavior();
+    });
+    this._browserWindow.webContents.on('devtools-closed', () => {
+      this.applyWindowFocusBehavior();
+    });
+
     this._browserWindow.on('blur', () => {
       if (!this._browserWindow) {
         return;
       }
 
-      // Preserve the legacy pin behavior unless the host explicitly separates
-      // click-away dismissal from the window's stacking level.
-      const hideOnBlur =
-        this._options.hideOnBlur ?? !this._browserWindow.isAlwaysOnTop();
-      if (!hideOnBlur) {
+      if (!this.shouldHideOnBlur()) {
         this.emit('focus-lost');
         return;
       }
@@ -648,8 +687,14 @@ export class Menubar extends EventEmitter {
         return;
       }
 
+      if (this._blurTimeout) {
+        clearTimeout(this._blurTimeout);
+      }
       this._blurTimeout = setTimeout(() => {
-        this.hideWindow();
+        this._blurTimeout = null;
+        if (this.shouldHideOnBlur()) {
+          this.hideWindow();
+        }
       }, 100);
     });
 

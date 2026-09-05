@@ -37,6 +37,10 @@ export class BrowserWindow {
   getSize: Mock = vi.fn(() => [400, 400]);
   hide: Mock = vi.fn();
   isAlwaysOnTop: Mock = vi.fn(() => false);
+  isDestroyed: Mock = vi.fn(() => false);
+  setAlwaysOnTop: Mock = vi.fn((value: boolean) => {
+    this.isAlwaysOnTop.mockReturnValue(value);
+  });
   loadURL: Mock = vi.fn();
   on: Mock = vi.fn();
   setPosition: Mock = vi.fn((x: number, y: number) => {
@@ -44,7 +48,10 @@ export class BrowserWindow {
   });
   setVisibleOnAllWorkspaces: Mock = vi.fn();
   show: Mock = vi.fn();
-  webContents: { on: Mock } = { on: vi.fn() };
+  webContents: { on: Mock; isDevToolsOpened: Mock } = {
+    on: vi.fn(),
+    isDevToolsOpened: vi.fn(() => false),
+  };
 }
 
 export const globalShortcut: {

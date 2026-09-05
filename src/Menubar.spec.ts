@@ -900,14 +900,14 @@ describe('Menubar blur-to-hide behavior', () => {
   });
 
   it.each(['win32', 'darwin', 'linux'])(
-    'preserves default always-on-top pinning on %s',
+    'keeps a popup open through the platform-independent option on %s',
     async (platform) => {
       Object.defineProperty(process, 'platform', { value: platform });
       const mb = new Menubar(app, { preloadWindow: true });
       await ready(mb);
       await mb.showWindow();
 
-      (mb.window!.isAlwaysOnTop as Mock).mockReturnValue(true);
+      mb.setOption('hideOnBlur', false);
       const focusLost = vi.fn();
       mb.on('focus-lost', focusLost);
 
@@ -960,18 +960,18 @@ describe('Menubar blur-to-hide behavior', () => {
   });
 
   it.each(['win32', 'darwin', 'linux'])(
-    'changes click-away behavior without changing stacking on %s',
+    'updates keep-open behavior and platform stacking together on %s',
     async (platform) => {
       Object.defineProperty(process, 'platform', { value: platform });
       const mb = new Menubar(app, { preloadWindow: true });
       await ready(mb);
-      (mb.window!.isAlwaysOnTop as Mock).mockReturnValue(true);
       const focusLost = vi.fn();
       mb.on('focus-lost', focusLost);
       vi.useFakeTimers();
       await mb.showWindow();
       vi.advanceTimersByTime(1000);
       mb.setOption('hideOnBlur', false);
+      expect(mb.window!.isAlwaysOnTop()).toBe(true);
 
       findHandler(mb.window!, 'blur')!();
       vi.advanceTimersByTime(100);
@@ -982,7 +982,7 @@ describe('Menubar blur-to-hide behavior', () => {
       findHandler(mb.window!, 'blur')!();
       vi.advanceTimersByTime(100);
       expect(mb.window!.hide).toHaveBeenCalledTimes(1);
-      expect(mb.window!.isAlwaysOnTop()).toBe(true);
+      expect(mb.window!.isAlwaysOnTop()).toBe(platform === 'win32');
     },
   );
 
@@ -1004,6 +1004,115 @@ describe('Menubar blur-to-hide behavior', () => {
 
       expect(focusLost).toHaveBeenCalledTimes(1);
       expect(mb.window!.hide).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(['win32', 'darwin', 'linux'])(
+    'dismisses by default even with explicitly configured always-on-top on %s',
+    async (platform) => {
+      Object.defineProperty(process, 'platform', { value: platform });
+      const mb = new Menubar(app, {
+        preloadWindow: true,
+        browserWindow: { alwaysOnTop: true },
+      });
+      await ready(mb);
+      vi.useFakeTimers();
+      await mb.showWindow();
+      vi.advanceTimersByTime(1000);
+      expect(mb.window!.isAlwaysOnTop()).toBe(true);
+      findHandler(mb.window!, 'blur')!();
+      vi.advanceTimersByTime(100);
+      expect(mb.window!.hide).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it.each(['win32', 'darwin', 'linux'])(
+    'applies a preference set before window creation and after recreation on %s',
+    async (platform) => {
+      Object.defineProperty(process, 'platform', { value: platform });
+      const mb = new Menubar(app);
+      mb.setOption('hideOnBlur', false);
+      await ready(mb);
+      await mb.showWindow();
+      expect(mb.window!.isAlwaysOnTop()).toBe(true);
+      findHandler(mb.window!, 'closed')!();
+      await mb.showWindow();
+      expect(mb.window!.isAlwaysOnTop()).toBe(true);
+      findHandler(mb.window!, 'blur')!();
+      expect(mb.window!.hide).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(['win32', 'darwin', 'linux'])(
+    'cancels pending dismissal when the popup is kept open on %s',
+    async (platform) => {
+      Object.defineProperty(process, 'platform', { value: platform });
+      const mb = new Menubar(app, { preloadWindow: true });
+      await ready(mb);
+      vi.useFakeTimers();
+      await mb.showWindow();
+      vi.advanceTimersByTime(1000);
+      findHandler(mb.window!, 'blur')!();
+      mb.setOption('hideOnBlur', false);
+      vi.advanceTimersByTime(100);
+      expect(mb.window!.hide).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(['win32', 'darwin', 'linux'])(
+    'does not let an old blur dismiss a newly shown popup on %s',
+    async (platform) => {
+      Object.defineProperty(process, 'platform', { value: platform });
+      const mb = new Menubar(app, { preloadWindow: true });
+      await ready(mb);
+      vi.useFakeTimers();
+      await mb.showWindow();
+      vi.advanceTimersByTime(1000);
+      findHandler(mb.window!, 'blur')!();
+      vi.advanceTimersByTime(50);
+      findHandler(mb.window!, 'blur')!();
+      await mb.showWindow();
+      vi.advanceTimersByTime(100);
+      expect(mb.window!.hide).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(['win32', 'darwin', 'linux'])(
+    'suspends dismissal for DevTools and restores the latest preference on %s',
+    async (platform) => {
+      Object.defineProperty(process, 'platform', { value: platform });
+      const mb = new Menubar(app, { preloadWindow: true });
+      await ready(mb);
+      const contents = mb.window!.webContents;
+      const devtoolsOpened = (contents.on as Mock).mock.calls.find(
+        ([event]) => event === 'devtools-opened',
+      )![1];
+      const devtoolsClosed = (contents.on as Mock).mock.calls.find(
+        ([event]) => event === 'devtools-closed',
+      )![1];
+      vi.useFakeTimers();
+      await mb.showWindow();
+      vi.advanceTimersByTime(1000);
+      findHandler(mb.window!, 'blur')!();
+      (contents.isDevToolsOpened as Mock).mockReturnValue(true);
+      devtoolsOpened();
+      vi.advanceTimersByTime(100);
+      expect(mb.window!.hide).not.toHaveBeenCalled();
+      expect(mb.window!.isAlwaysOnTop()).toBe(true);
+      expect(mb.getOption('hideOnBlur')).toBeUndefined();
+
+      mb.setOption('hideOnBlur', false);
+      mb.setOption('hideOnBlur', true);
+      findHandler(mb.window!, 'blur')!();
+      vi.advanceTimersByTime(100);
+      expect(mb.window!.hide).not.toHaveBeenCalled();
+
+      (contents.isDevToolsOpened as Mock).mockReturnValue(false);
+      devtoolsClosed();
+      expect(mb.window!.isAlwaysOnTop()).toBe(platform === 'win32');
+      findHandler(mb.window!, 'blur')!();
+      vi.advanceTimersByTime(100);
+      expect(mb.window!.hide).toHaveBeenCalledTimes(1);
     },
   );
 });

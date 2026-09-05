@@ -1,6 +1,10 @@
 const path = require('node:path');
-const { globalShortcut, Menu } = require('electron');
+const { mkdtempSync } = require('node:fs');
+const { tmpdir } = require('node:os');
+const { app, globalShortcut, Menu } = require('electron');
 const { menubar } = require('../../../lib/index.cjs');
+
+app.setPath('userData', mkdtempSync(path.join(tmpdir(), 'menubar-e2e-')));
 
 const scenario = process.env.E2E_SCENARIO || 'default';
 
