@@ -21,6 +21,37 @@
 > [!NOTE]
 > On native Wayland, the desktop compositor controls window placement, so the popover cannot be anchored to the tray icon and is positioned by the desktop (usually centered). This is a Wayland limitation, not something the library can override. Tray-relative positioning works under X11/XWayland. See [window positioning on Linux][platforms] for the detail and a workaround.
 
+## Why electron-menubar?
+
+`electron-menubar` builds on [max-mapper/menubar][github-upstream-repo], with fixes and controls developed for [Gitify](https://github.com/gitify-app/gitify). The original provides the tray-app foundation. This fork brings more of the platform-specific behavior into the library so applications have less to implement themselves.
+
+| Area | What this fork adds |
+| --- | --- |
+| Windows focus and positioning | Ignores transient blur events immediately after opening, keeps resized windows clear of the taskbar, handles left-side taskbars, and prevents recursive resize events during repositioning. |
+| Windows tray overflow | The new `hideOnBlur` option separates click-away dismissal from always-on-top behavior. Apps can keep their window above the hidden-icons panel and still dismiss it when focus moves away. See the configuration below. **Unreleased.** |
+| macOS | Opens on the active Space when another app is fullscreen, hides the Dock icon again after Electron's startup race, and ignores tray double-clicks by default to avoid flicker. |
+| Linux tray menus | Publishes native tray context menus and provides `refreshContextMenu()` to update them after menu items change. Documents native Wayland positioning limits and the XWayland workaround. |
+| Window controls | Built-in `hideOnClose`, `escapeToHide`, configurable tray triggers, global shortcuts, `toggleWindow()`, and `recenterOnTray()`. Closing can hide the window while real quits and updater restarts still work. |
+| Instance cleanup | `destroy()` removes the instance's listeners and unregisters its global shortcut. |
+| Packaging | Zero runtime dependencies, including a built-in positioner. Ships CommonJS and ESM entry points with TypeScript declarations. |
+| Verification | Unit tests, native Electron end-to-end tests on macOS, Windows, and Linux, and visual checks that the tray icon and window render. The [platform report][platforms] includes screenshots and positioning limitations. |
+
+### Keeping Windows popups above the hidden-icons panel
+
+With the unreleased `hideOnBlur` option, use Electron's `pop-up-menu` level to address [Gitify #1048](https://github.com/gitify-app/gitify/issues/1048). The option controls dismissal; the Electron call controls window stacking.
+
+```javascript
+const mb = menubar({ hideOnBlur: true });
+
+mb.on('after-create-window', () => {
+	if (process.platform === 'win32') {
+		mb.window.setAlwaysOnTop(true, 'pop-up-menu');
+	}
+});
+```
+
+See the [changelog](CHANGELOG.md) for released changes and the [API documentation](#api-documentation) for all options.
+
 ## Installation
 
 ```bash
@@ -153,14 +184,14 @@ Originally created by [Max][github-upstream-creator] — hard-forked from [max-m
 [github]: https://github.com/gitify-app/electron-menubar
 [github-actions]: https://github.com/gitify-app/electron-menubar/actions
 [github-issues]: https://github.com/gitify-app/electron-menubar/issues
-[github-releases]: https://github.com/gitify-app/gitify/electron-menubar/latest
+[github-releases]: https://github.com/gitify-app/electron-menubar/releases/latest
 [github-upstream-creator]: https://github.com/max-mapper
 [github-upstream-repo]: https://github.com/max-mapper/menubar
 
 [examples]: examples
 [examples-native]: examples/native-menu
 
-[platforms]: PLATFORMS
+[platforms]: PLATFORMS.md
 
 [electron-docs-accelerator]: https://electronjs.org/docs/api/accelerator
 [electron-docs-app]:https://electronjs.org/docs/api/app
