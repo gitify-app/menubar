@@ -1,16 +1,16 @@
 version: 2
 updates:
   - package-ecosystem: npm
-    directory: "/"
+    directory: '/'
     schedule:
       interval: weekly
-      time: "02:00"
+      time: '02:00'
       timezone: Europe/Berlin
     open-pull-requests-limit: 10
   - package-ecosystem: github-actions
-    directory: "/"
+    directory: '/'
     schedule:
       interval: weekly
-      time: "02:00"
+      time: '02:00'
       timezone: Europe/Berlin
     open-pull-requests-limit: 10

@@ -1,8 +1,8 @@
 {
   "name": "example-menubar",
   "version": "0.1.0",
-  "description": "Examples of menubar electron apps",
   "private": true,
+  "description": "Examples of menubar electron apps",
   "devDependencies": {
     "electron": "^42.0.0"
   },

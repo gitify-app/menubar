@@ -4,13 +4,5 @@
   "tabWidth": 2,
   "printWidth": 80,
   "sortImports": true,
-  "ignorePatterns": [
-    "lib/**",
-    "docs/**",
-    "examples/**",
-    "coverage/**",
-    "CHANGELOG.md",
-    "**/*.md",
-    ".github/**"
-  ]
+  "ignorePatterns": ["lib/**", "coverage/**"]
 }

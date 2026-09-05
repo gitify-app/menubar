@@ -1,634 +1,640 @@
 name: Visual Tray
 
 on:
-    push:
-        branches:
-            - main
-    pull_request:
-        branches:
-            - main
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
 
 permissions: {}
 
 jobs:
-    macos:
-        name: Visual [${{ matrix.label }}]
-        runs-on: ${{ matrix.runner }}
-        timeout-minutes: 30
-        permissions:
-            contents: read
-        strategy:
-            fail-fast: false
-            matrix:
-                include:
-                    - runner: macos-26
-                      label: macOS 26 (Tahoe)
-                      key: macos-26
-                    - runner: macos-15
-                      label: macOS 15 (Sequoia)
-                      key: macos-15
-                    - runner: macos-14
-                      label: macOS 14 (Sonoma)
-                      key: macos-14
-        steps:
-            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-              with:
-                  persist-credentials: false
-            - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
-            - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-              with:
-                  node-version-file: .node-version
-                  cache: pnpm
-            - name: Install dependencies
-              shell: bash
-              run: |
-                  for attempt in 1 2 3; do
-                      if pnpm install --frozen-lockfile && node node_modules/electron/install.js && node -e "require('electron')" >/dev/null 2>&1; then exit 0; fi
-                      echo "::warning::install/electron-binary attempt $attempt failed; retrying..."
-                      rm -rf node_modules/electron 2>/dev/null || true
-                      sleep $((attempt * 5))
-                  done
-                  exit 1
-            - name: Build library
-              run: pnpm run build
-            - name: Hide menu bar clock and dock
-              run: |
-                  defaults -currentHost write com.apple.controlcenter Clock -int 16
-                  defaults write com.apple.controlcenter "NSStatusItem Visible Clock" -bool false
-                  defaults write com.apple.dock autohide -bool true
-                  defaults write com.apple.dock autohide-delay -float 1000
-                  defaults write com.apple.dock no-bouncing -bool true
-                  killall ControlCenter Dock SystemUIServer 2>/dev/null || true
-                  sleep 8
-            - name: Run visual test
-              env:
-                  VISUAL_KEY: ${{ matrix.key }}
-                  VISUAL_LABEL: ${{ matrix.label }}
-              run: pnpm run test:visual
-            - name: Upload artifacts
-              if: always()
-              uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-              with:
-                  name: visual-${{ matrix.key }}
-                  path: test-results/visual/
-                  if-no-files-found: warn
-                  retention-days: 14
+  macos:
+    name: Visual [${{ matrix.label }}]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-26
+            label: macOS 26 (Tahoe)
+            key: macos-26
+          - runner: macos-15
+            label: macOS 15 (Sequoia)
+            key: macos-15
+          - runner: macos-14
+            label: macOS 14 (Sonoma)
+            key: macos-14
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - name: Install dependencies
+        shell: bash
+        run: |
+          for attempt in 1 2 3; do
+              if pnpm install --frozen-lockfile && node node_modules/electron/install.js && node -e "require('electron')" >/dev/null 2>&1; then exit 0; fi
+              echo "::warning::install/electron-binary attempt $attempt failed; retrying..."
+              rm -rf node_modules/electron 2>/dev/null || true
+              sleep $((attempt * 5))
+          done
+          exit 1
+      - name: Build library
+        run: pnpm run build
+      - name: Hide menu bar clock and dock
+        run: |
+          defaults -currentHost write com.apple.controlcenter Clock -int 16
+          defaults write com.apple.controlcenter "NSStatusItem Visible Clock" -bool false
+          defaults write com.apple.dock autohide -bool true
+          defaults write com.apple.dock autohide-delay -float 1000
+          defaults write com.apple.dock no-bouncing -bool true
+          killall ControlCenter Dock SystemUIServer 2>/dev/null || true
+          sleep 8
+      - name: Run visual test
+        env:
+          VISUAL_KEY: ${{ matrix.key }}
+          VISUAL_LABEL: ${{ matrix.label }}
+        run: pnpm run test:visual
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: visual-${{ matrix.key }}
+          path: test-results/visual/
+          if-no-files-found: warn
+          retention-days: 14
 
-    linux:
-        name: Visual [${{ matrix.label }}]
-        runs-on: ubuntu-24.04
-        timeout-minutes: 30
-        permissions:
-            contents: read
-        continue-on-error: ${{ matrix.experimental || false }}
-        strategy:
-            fail-fast: false
-            matrix:
-                include:
-                    - de: mate
-                      label: Linux (MATE)
-                      key: linux-mate
-                      apt: mate-panel mate-indicator-applet
-                      panel_cmd: mate-panel --replace
-                    - de: xfce
-                      label: Linux (Xfce)
-                      key: linux-xfce
-                      apt: xfce4-panel
-                      panel_cmd: xfce4-panel --disable-wm-check
-                    - de: lxqt
-                      label: Linux (LXQt)
-                      key: linux-lxqt
-                      apt: lxqt-panel lxqt-session
-                      panel_cmd: |
-                          mkdir -p ~/.config/lxqt && \
-                          printf '[General]\n__userfile__=true\npanels=p1\n[p1]\nplugins=statusnotifier\nposition=Top\nalignment=0\n[statusnotifier]\ntype=statusnotifier\nalignment=Right\n' > ~/.config/lxqt/panel.conf && \
-                          lxqt-panel
-                    - de: kde
-                      label: Linux (KDE Plasma)
-                      key: linux-kde
-                      apt: plasma-workspace plasma-desktop kwin-x11 systemsettings kde-cli-tools
-                      cache_apt: true
-                      panel_cmd: |
-                          bash -c '
-                          kwin_x11 --replace & sleep 4
-                          plasmashell --no-respawn & PLASMA_PID=$!
-                          CFG=~/.config/plasma-org.kde.plasma.desktop-appletsrc
-                          for i in {1..20}; do
-                            [ -f "$CFG" ] && grep -q "org.kde.plasma.systemtray" "$CFG" && break
-                            sleep 1
-                          done
-                          # Brute-force showAllItems=true on every containment x applet pair
-                          for CID in 1 2 3 4 5 6 7 8 9 10; do
-                            for AID in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 20 25 30; do
-                              kwriteconfig5 --file "$CFG" --group Containments --group "$CID" --group Applets --group "$AID" --group Configuration --group General --key showAllItems true 2>/dev/null || true
-                            done
-                          done
-                          echo "=== plasma config after rewrite ==="; cat "$CFG"
-                          # Tell plasmashell to reload its config
-                          qdbus org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.refreshCurrentShell 2>/dev/null || true
-                          # If refresh did not pick it up, restart plasmashell with new config
-                          kquitapp5 plasmashell 2>/dev/null || pkill -TERM plasmashell
-                          sleep 4
-                          plasmashell --no-respawn &
-                          wait'
-                      panel_warmup: 35
-                      post_ready_delay: 18000
-                    # Cinnamon is experimental: Xvfb/Xvnc lack a working RRSetCrtcConfig,
-                    # so muffin's startup config-reconciler hits BadValue and never finishes.
-                    # Xdummy (Xorg + xserver-xorg-video-dummy) is a real Xorg with a complete
-                    # RandR 1.2+ implementation, which is the only theory that has a chance.
-                    - de: cinnamon
-                      label: Linux (Cinnamon)
-                      key: linux-cinnamon
-                      apt: cinnamon cinnamon-session muffin mesa-utils xserver-xorg-core xserver-xorg-video-dummy xserver-xorg-legacy x11-xserver-utils dconf-cli
-                      cache_apt: true
-                      use_xdummy: true
-                      panel_cmd: |
-                          bash -c '
-                          export LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe MESA_GL_VERSION_OVERRIDE=3.3 CLUTTER_BACKEND=x11
-                          export XDG_CURRENT_DESKTOP=X-Cinnamon DESKTOP_SESSION=cinnamon XDG_SESSION_TYPE=x11
-                          xrandr --query 2>&1 | head -20
-                          cinnamon-session-cinnamon &
-                          sleep 8
-                          cinnamon --replace 2>&1 | head -40 &
-                          wait'
-                      panel_warmup: 35
-                      post_ready_delay: 18000
-                      experimental: true
-                    - de: tint2
-                      label: Linux (Tint2)
-                      key: linux-tint2
-                      apt: tint2 valac libgtk-3-dev libdbusmenu-glib-dev libdbusmenu-gtk3-dev pkg-config make git
-                      panel_cmd: bash -c 'tint2 & sleep 3; snixembed'
-                      build_snixembed: true
-                      panel_warmup: 12
-                      post_ready_delay: 6000
-                    # GNOME is experimental: Mutter paints the fixture window
-                    # as an opaque Adwaita-blue rectangle regardless of our
-                    # backgroundColor / HTML body color / frame:false / focus()
-                    # combination. The test still passes via the globalWhite
-                    # fallback (white pixels exist elsewhere on screen) but the
-                    # saved screenshot doesn't show the white-box-with-black-
-                    # square design the way the other 13 platforms do. Marking
-                    # experimental so future regressions don't block merges
-                    # until someone figures out the Electron+Mutter conflict.
-                    - de: gnome
-                      label: Linux (GNOME)
-                      key: linux-gnome
-                      apt: gnome-shell gnome-shell-extension-appindicator
-                      panel_cmd: bash -c 'gnome-extensions enable ubuntu-appindicators@ubuntu.com 2>/dev/null || true; gnome-shell --x11'
-                      experimental: true
-                    # Budgie: noble ships budgie-desktop 10.9, whose default panel layout
-                    # already includes the System Tray applet. The applet is a pure client
-                    # of org.freedesktop.StatusNotifierWatcher — and in 10.9+ that watcher
-                    # is owned by budgie-daemon, not the applet. Running budgie-wm +
-                    # budgie-panel without a session manager skips the daemon autostart,
-                    # leaving SNI items unobserved. Start budgie-daemon first.
-                    - de: budgie
-                      label: Linux (Budgie)
-                      key: linux-budgie
-                      apt: budgie-desktop
-                      cache_apt: true
-                      panel_cmd: |
-                          bash -c '
-                          export XDG_CURRENT_DESKTOP=Budgie:GNOME DESKTOP_SESSION=budgie-desktop
-                          budgie-daemon &
-                          sleep 2
-                          budgie-wm --replace &
-                          sleep 5
-                          budgie-panel --replace'
-                      panel_warmup: 18
-                      post_ready_delay: 10000
-        steps:
-            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-              with:
-                  persist-credentials: false
-            - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
-            - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-              with:
-                  node-version-file: .node-version
-                  cache: pnpm
-            - name: Install dependencies
-              shell: bash
-              run: |
-                  for attempt in 1 2 3; do
-                      if pnpm install --frozen-lockfile && node node_modules/electron/install.js && node -e "require('electron')" >/dev/null 2>&1; then exit 0; fi
-                      echo "::warning::install/electron-binary attempt $attempt failed; retrying..."
-                      rm -rf node_modules/electron 2>/dev/null || true
-                      sleep $((attempt * 5))
-                  done
-                  exit 1
-            - name: Build library
-              run: pnpm run build
-            - name: Install base dependencies
-              # The fetch timeouts + retries apply to every apt call in the job;
-              # without them a stalled Azure mirror hangs apt-get until the job
-              # timeout instead of retrying.
-              run: |
-                  printf 'Acquire::Retries "3";\nAcquire::http::Timeout "30";\nAcquire::https::Timeout "30";\n' | sudo tee /etc/apt/apt.conf.d/99-fetch-timeouts
-                  sudo apt-get update -qq
-                  sudo apt-get install -y --no-install-recommends \
-                      xvfb imagemagick dbus-x11 faketime \
-                      libgtk-3-0 libnss3 libxss1 libasound2t64 \
-                      libgbm1 libatk-bridge2.0-0 libdrm2 \
-                      libxtst6 libnotify4 libxrandr2 \
-                      libxcomposite1 libxdamage1 libxfixes3 libcups2 \
-                      libayatana-appindicator3-1
-            # Heavy DEs (KDE, Cinnamon, Budgie) pull hundreds of MB of packages;
-            # cache them by package set so subsequent runs skip the download.
-            # execute_install_scripts: true is required because the DE setup
-            # depends on postinstall hooks like glib-compile-schemas — without
-            # it the cached restore leaves gsettings schemas uncompiled and
-            # budgie-daemon/cinnamon-session crash with "Settings schema
-            # 'com.solus-project.budgie-panel' is not installed".
-            - name: Install desktop environment (cached)
-              if: matrix.cache_apt
-              uses: awalsh128/cache-apt-pkgs-action@553a35bb8ebd9fcabcb1c9451aa4c98e1b4ca8a9 # v1.6.3
-              with:
-                  packages: ${{ matrix.apt }}
-                  version: '1.0'
-                  execute_install_scripts: 'true'
-            # The action's execute_install_scripts only runs a subset of
-            # postinst (e.g. polkitd) — glib-compile-schemas is silently
-            # skipped, so we run it explicitly. Without this, budgie-daemon
-            # and cinnamon-session crash with "Settings schema ... not
-            # installed" on cache restore.
-            - name: Compile glib schemas after cache restore
-              if: matrix.cache_apt
-              run: sudo glib-compile-schemas /usr/share/glib-2.0/schemas/
-            - name: Install desktop environment (uncached)
-              if: '!matrix.cache_apt'
-              env:
-                  APT_PACKAGES: ${{ matrix.apt }}
-              run: |
-                  sudo apt-get install -y --no-install-recommends $APT_PACKAGES
-            - name: Build snixembed (SNI to XEmbed bridge)
-              if: matrix.build_snixembed
-              run: |
-                  git clone --depth 1 https://git.sr.ht/~steef/snixembed /tmp/snixembed
-                  cd /tmp/snixembed
-                  make
-                  sudo make install PREFIX=/usr/local
-                  snixembed --help 2>&1 | head -5 || true
-            - name: Configure Xdummy
-              if: matrix.use_xdummy
-              run: |
-                  sudo tee /etc/X11/xorg-dummy.conf >/dev/null <<'EOF'
-                  Section "Device"
-                      Identifier "Dummy"
-                      Driver "dummy"
-                      VideoRam 256000
-                  EndSection
-                  Section "Monitor"
-                      Identifier "DummyMonitor"
-                      HorizSync 28.0-80.0
-                      VertRefresh 48.0-75.0
-                      Modeline "1920x1080" 148.50 1920 2008 2052 2200 1080 1084 1089 1125 +HSync +VSync
-                  EndSection
-                  Section "Screen"
-                      Identifier "DummyScreen"
-                      Device "Dummy"
-                      Monitor "DummyMonitor"
-                      DefaultDepth 24
-                      SubSection "Display"
-                          Depth 24
-                          Modes "1920x1080"
-                      EndSubSection
-                  EndSection
-                  EOF
-                  sudo tee /etc/X11/Xwrapper.config >/dev/null <<'EOF'
-                  allowed_users=anybody
-                  needs_root_rights=yes
-                  EOF
-            - name: Run visual test under ${{ matrix.de }}
-              env:
-                  VISUAL_KEY: ${{ matrix.key }}
-                  VISUAL_LABEL: ${{ matrix.label }}
-                  VISUAL_POST_READY_DELAY_MS: ${{ matrix.post_ready_delay || 3000 }}
-                  PANEL_CMD: ${{ matrix.panel_cmd }}
-                  PANEL_WARMUP: ${{ matrix.panel_warmup || 8 }}
-                  TEST_DISPLAY: ${{ matrix.test_display || ':99' }}
-              run: |
-                  set -x
-                  if [ "${{ matrix.use_xdummy || 'false' }}" = "true" ]; then
-                      sudo Xorg :99 -config /etc/X11/xorg-dummy.conf -noreset -nolisten tcp -logfile /tmp/xorg.log &
-                  else
-                      Xvfb :99 -screen 0 ${{ matrix.xvfb_screen || '1920x1080x24' }} &
-                  fi
-                  XSERVER_PID=$!
-                  export DISPLAY=:99
-                  sleep 3
-                  dbus-run-session -- bash -c '
-                      export DISPLAY=:99
-                      LD_PRELOAD=/usr/lib/x86_64-linux-gnu/faketime/libfaketimeMT.so.1 FAKETIME="@2026-01-01 00:00:00" bash -c "$PANEL_CMD" &
-                      PANEL_PID=$!
-                      sleep "$PANEL_WARMUP"
-                      DISPLAY="$TEST_DISPLAY" pnpm run test:visual
-                      EXIT=$?
-                      kill $PANEL_PID 2>/dev/null || true
-                      exit $EXIT
-                  '
-                  EXIT=$?
-                  kill $XSERVER_PID 2>/dev/null || true
-                  exit $EXIT
-            - name: Upload artifacts
-              if: always()
-              uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-              with:
-                  name: visual-${{ matrix.key }}
-                  path: test-results/visual/
-                  if-no-files-found: warn
-                  retention-days: 14
+  linux:
+    name: Visual [${{ matrix.label }}]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    continue-on-error: ${{ matrix.experimental || false }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - de: mate
+            label: Linux (MATE)
+            key: linux-mate
+            apt: mate-panel mate-indicator-applet
+            panel_cmd: mate-panel --replace
+          - de: xfce
+            label: Linux (Xfce)
+            key: linux-xfce
+            apt: xfce4-panel
+            panel_cmd: xfce4-panel --disable-wm-check
+          - de: lxqt
+            label: Linux (LXQt)
+            key: linux-lxqt
+            apt: lxqt-panel lxqt-session
+            panel_cmd: |
+              mkdir -p ~/.config/lxqt && \
+              printf '[General]\n__userfile__=true\npanels=p1\n[p1]\nplugins=statusnotifier\nposition=Top\nalignment=0\n[statusnotifier]\ntype=statusnotifier\nalignment=Right\n' > ~/.config/lxqt/panel.conf && \
+              lxqt-panel
+          - de: kde
+            label: Linux (KDE Plasma)
+            key: linux-kde
+            apt: plasma-workspace plasma-desktop kwin-x11 systemsettings kde-cli-tools
+            cache_apt: true
+            panel_cmd: |
+              bash -c '
+              kwin_x11 --replace & sleep 4
+              plasmashell --no-respawn & PLASMA_PID=$!
+              CFG=~/.config/plasma-org.kde.plasma.desktop-appletsrc
+              for i in {1..20}; do
+                [ -f "$CFG" ] && grep -q "org.kde.plasma.systemtray" "$CFG" && break
+                sleep 1
+              done
+              # Brute-force showAllItems=true on every containment x applet pair
+              for CID in 1 2 3 4 5 6 7 8 9 10; do
+                for AID in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 20 25 30; do
+                  kwriteconfig5 --file "$CFG" --group Containments --group "$CID" --group Applets --group "$AID" --group Configuration --group General --key showAllItems true 2>/dev/null || true
+                done
+              done
+              echo "=== plasma config after rewrite ==="; cat "$CFG"
+              # Tell plasmashell to reload its config
+              qdbus org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.refreshCurrentShell 2>/dev/null || true
+              # If refresh did not pick it up, restart plasmashell with new config
+              kquitapp5 plasmashell 2>/dev/null || pkill -TERM plasmashell
+              sleep 4
+              plasmashell --no-respawn &
+              wait'
+            panel_warmup: 35
+            post_ready_delay: 18000
+          # Cinnamon is experimental: Xvfb/Xvnc lack a working RRSetCrtcConfig,
+          # so muffin's startup config-reconciler hits BadValue and never finishes.
+          # Xdummy (Xorg + xserver-xorg-video-dummy) is a real Xorg with a complete
+          # RandR 1.2+ implementation, which is the only theory that has a chance.
+          - de: cinnamon
+            label: Linux (Cinnamon)
+            key: linux-cinnamon
+            apt: cinnamon cinnamon-session muffin mesa-utils xserver-xorg-core xserver-xorg-video-dummy xserver-xorg-legacy x11-xserver-utils dconf-cli
+            cache_apt: true
+            use_xdummy: true
+            panel_cmd: |
+              bash -c '
+              export LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe MESA_GL_VERSION_OVERRIDE=3.3 CLUTTER_BACKEND=x11
+              export XDG_CURRENT_DESKTOP=X-Cinnamon DESKTOP_SESSION=cinnamon XDG_SESSION_TYPE=x11
+              xrandr --query 2>&1 | head -20
+              cinnamon-session-cinnamon &
+              sleep 8
+              cinnamon --replace 2>&1 | head -40 &
+              wait'
+            panel_warmup: 35
+            post_ready_delay: 18000
+            experimental: true
+          - de: tint2
+            label: Linux (Tint2)
+            key: linux-tint2
+            apt: tint2 valac libgtk-3-dev libdbusmenu-glib-dev libdbusmenu-gtk3-dev pkg-config make git
+            panel_cmd: bash -c 'tint2 & sleep 3; snixembed'
+            build_snixembed: true
+            panel_warmup: 12
+            post_ready_delay: 6000
+          # GNOME is experimental: Mutter paints the fixture window
+          # as an opaque Adwaita-blue rectangle regardless of our
+          # backgroundColor / HTML body color / frame:false / focus()
+          # combination. The test still passes via the globalWhite
+          # fallback (white pixels exist elsewhere on screen) but the
+          # saved screenshot doesn't show the white-box-with-black-
+          # square design the way the other 13 platforms do. Marking
+          # experimental so future regressions don't block merges
+          # until someone figures out the Electron+Mutter conflict.
+          - de: gnome
+            label: Linux (GNOME)
+            key: linux-gnome
+            apt: gnome-shell gnome-shell-extension-appindicator
+            panel_cmd: bash -c 'gnome-extensions enable ubuntu-appindicators@ubuntu.com 2>/dev/null || true; gnome-shell --x11'
+            experimental: true
+          # Budgie: noble ships budgie-desktop 10.9, whose default panel layout
+          # already includes the System Tray applet. The applet is a pure client
+          # of org.freedesktop.StatusNotifierWatcher — and in 10.9+ that watcher
+          # is owned by budgie-daemon, not the applet. Running budgie-wm +
+          # budgie-panel without a session manager skips the daemon autostart,
+          # leaving SNI items unobserved. Start budgie-daemon first.
+          - de: budgie
+            label: Linux (Budgie)
+            key: linux-budgie
+            apt: budgie-desktop
+            cache_apt: true
+            panel_cmd: |
+              bash -c '
+              export XDG_CURRENT_DESKTOP=Budgie:GNOME DESKTOP_SESSION=budgie-desktop
+              budgie-daemon &
+              sleep 2
+              budgie-wm --replace &
+              sleep 5
+              budgie-panel --replace'
+            panel_warmup: 18
+            post_ready_delay: 10000
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - name: Install dependencies
+        shell: bash
+        run: |
+          for attempt in 1 2 3; do
+              if pnpm install --frozen-lockfile && node node_modules/electron/install.js && node -e "require('electron')" >/dev/null 2>&1; then exit 0; fi
+              echo "::warning::install/electron-binary attempt $attempt failed; retrying..."
+              rm -rf node_modules/electron 2>/dev/null || true
+              sleep $((attempt * 5))
+          done
+          exit 1
+      - name: Build library
+        run: pnpm run build
+      - name: Install base dependencies
+        # The fetch timeouts + retries apply to every apt call in the job;
+        # without them a stalled Azure mirror hangs apt-get until the job
+        # timeout instead of retrying.
+        run: |
+          printf 'Acquire::Retries "3";\nAcquire::http::Timeout "30";\nAcquire::https::Timeout "30";\n' | sudo tee /etc/apt/apt.conf.d/99-fetch-timeouts
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+              xvfb imagemagick dbus-x11 faketime \
+              libgtk-3-0 libnss3 libxss1 libasound2t64 \
+              libgbm1 libatk-bridge2.0-0 libdrm2 \
+              libxtst6 libnotify4 libxrandr2 \
+              libxcomposite1 libxdamage1 libxfixes3 libcups2 \
+              libayatana-appindicator3-1
+      # Heavy DEs (KDE, Cinnamon, Budgie) pull hundreds of MB of packages;
+      # cache them by package set so subsequent runs skip the download.
+      # execute_install_scripts: true is required because the DE setup
+      # depends on postinstall hooks like glib-compile-schemas — without
+      # it the cached restore leaves gsettings schemas uncompiled and
+      # budgie-daemon/cinnamon-session crash with "Settings schema
+      # 'com.solus-project.budgie-panel' is not installed".
+      - name: Install desktop environment (cached)
+        if: matrix.cache_apt
+        uses: awalsh128/cache-apt-pkgs-action@553a35bb8ebd9fcabcb1c9451aa4c98e1b4ca8a9 # v1.6.3
+        with:
+          packages: ${{ matrix.apt }}
+          version: '1.0'
+          execute_install_scripts: 'true'
+      # The action's execute_install_scripts only runs a subset of
+      # postinst (e.g. polkitd) — glib-compile-schemas is silently
+      # skipped, so we run it explicitly. Without this, budgie-daemon
+      # and cinnamon-session crash with "Settings schema ... not
+      # installed" on cache restore.
+      - name: Compile glib schemas after cache restore
+        if: matrix.cache_apt
+        run: sudo glib-compile-schemas /usr/share/glib-2.0/schemas/
+      - name: Install desktop environment (uncached)
+        if: '!matrix.cache_apt'
+        env:
+          APT_PACKAGES: ${{ matrix.apt }}
+        run: |
+          sudo apt-get install -y --no-install-recommends $APT_PACKAGES
+      - name: Build snixembed (SNI to XEmbed bridge)
+        if: matrix.build_snixembed
+        run: |
+          git clone --depth 1 https://git.sr.ht/~steef/snixembed /tmp/snixembed
+          cd /tmp/snixembed
+          make
+          sudo make install PREFIX=/usr/local
+          snixembed --help 2>&1 | head -5 || true
+      - name: Configure Xdummy
+        if: matrix.use_xdummy
+        run: |
+          sudo tee /etc/X11/xorg-dummy.conf >/dev/null <<'EOF'
+          Section "Device"
+              Identifier "Dummy"
+              Driver "dummy"
+              VideoRam 256000
+          EndSection
+          Section "Monitor"
+              Identifier "DummyMonitor"
+              HorizSync 28.0-80.0
+              VertRefresh 48.0-75.0
+              Modeline "1920x1080" 148.50 1920 2008 2052 2200 1080 1084 1089 1125 +HSync +VSync
+          EndSection
+          Section "Screen"
+              Identifier "DummyScreen"
+              Device "Dummy"
+              Monitor "DummyMonitor"
+              DefaultDepth 24
+              SubSection "Display"
+                  Depth 24
+                  Modes "1920x1080"
+              EndSubSection
+          EndSection
+          EOF
+          sudo tee /etc/X11/Xwrapper.config >/dev/null <<'EOF'
+          allowed_users=anybody
+          needs_root_rights=yes
+          EOF
+      - name: Run visual test under ${{ matrix.de }}
+        env:
+          VISUAL_KEY: ${{ matrix.key }}
+          VISUAL_LABEL: ${{ matrix.label }}
+          VISUAL_POST_READY_DELAY_MS: ${{ matrix.post_ready_delay || 3000 }}
+          PANEL_CMD: ${{ matrix.panel_cmd }}
+          PANEL_WARMUP: ${{ matrix.panel_warmup || 8 }}
+          TEST_DISPLAY: ${{ matrix.test_display || ':99' }}
+        run: |
+          set -x
+          if [ "${{ matrix.use_xdummy || 'false' }}" = "true" ]; then
+              sudo Xorg :99 -config /etc/X11/xorg-dummy.conf -noreset -nolisten tcp -logfile /tmp/xorg.log &
+          else
+              Xvfb :99 -screen 0 ${{ matrix.xvfb_screen || '1920x1080x24' }} &
+          fi
+          XSERVER_PID=$!
+          export DISPLAY=:99
+          sleep 3
+          dbus-run-session -- bash -c '
+              export DISPLAY=:99
+              LD_PRELOAD=/usr/lib/x86_64-linux-gnu/faketime/libfaketimeMT.so.1 FAKETIME="@2026-01-01 00:00:00" bash -c "$PANEL_CMD" &
+              PANEL_PID=$!
+              sleep "$PANEL_WARMUP"
+              DISPLAY="$TEST_DISPLAY" pnpm run test:visual
+              EXIT=$?
+              kill $PANEL_PID 2>/dev/null || true
+              exit $EXIT
+          '
+          EXIT=$?
+          kill $XSERVER_PID 2>/dev/null || true
+          exit $EXIT
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: visual-${{ matrix.key }}
+          path: test-results/visual/
+          if-no-files-found: warn
+          retention-days: 14
 
-    linux-wayland:
-        name: Visual [${{ matrix.label }}]
-        runs-on: ubuntu-24.04
-        timeout-minutes: 30
-        permissions:
-            contents: read
-        continue-on-error: ${{ matrix.experimental || false }}
-        strategy:
-            fail-fast: false
-            # Hyprland is not in this matrix. Investigation summary (see PR #10):
-            #   - v0.42+ uses Aquamarine, whose allocator hardcodes GBM and has no
-            #     software fallback (Backend.cpp:160-176, TODO open since 2024).
-            #   - v0.41.2 (last wlroots release) asserts wlr_renderer_is_gles2(),
-            #     rejecting wlroots' Pixman fallback when no DRM render node exists.
-            #   - GHA ubuntu-24.04 ships /dev/dri/card1 (hyperv_drm) but that driver
-            #     is modeset-only — no GBM, so wlroots can't create GLES2 against it.
-            #   - vkms (Virtual KMS) is not in the linux-azure kernel modules.
-            # Sway already covers wlroots+Waybar+SNI on this matrix; Hyprland would
-            # need either self-hosted runners with real GPU or KVM nested virt.
-            matrix:
-                include:
-                    - de: sway
-                      label: Linux (Sway/Waybar)
-                      key: linux-sway
-                      apt: sway waybar grim
-        steps:
-            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-              with:
-                  persist-credentials: false
-            - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
-            - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-              with:
-                  node-version-file: .node-version
-                  cache: pnpm
-            - name: Install dependencies
-              shell: bash
-              run: |
-                  for attempt in 1 2 3; do
-                      if pnpm install --frozen-lockfile && node node_modules/electron/install.js && node -e "require('electron')" >/dev/null 2>&1; then exit 0; fi
-                      echo "::warning::install/electron-binary attempt $attempt failed; retrying..."
-                      rm -rf node_modules/electron 2>/dev/null || true
-                      sleep $((attempt * 5))
-                  done
-                  exit 1
-            - name: Build library
-              run: pnpm run build
-            - name: Install Wayland compositor
-              env:
-                  APT_PACKAGES: ${{ matrix.apt }}
-              run: |
-                  printf 'Acquire::Retries "3";\nAcquire::http::Timeout "30";\nAcquire::https::Timeout "30";\n' | sudo tee /etc/apt/apt.conf.d/99-fetch-timeouts
-                  sudo apt-get update -qq
-                  sudo apt-get install -y --no-install-recommends \
-                      dbus-x11 \
-                      libgtk-3-0 libnss3 libxss1 libasound2t64 \
-                      libgbm1 libatk-bridge2.0-0 libdrm2 \
-                      libxtst6 libnotify4 libxrandr2 \
-                      libxcomposite1 libxdamage1 libxfixes3 libcups2 \
-                      libayatana-appindicator3-1 libdbusmenu-glib4 \
-                      $APT_PACKAGES
-            - name: Configure Waybar
-              run: |
-                  mkdir -p ~/.config/waybar
-                  cat > ~/.config/waybar/config.jsonc <<'EOF'
-                  {
-                    "layer": "top",
-                    "position": "top",
-                    "height": 32,
-                    "modules-right": ["tray"],
-                    "tray": { "icon-size": 22, "spacing": 10 }
-                  }
-                  EOF
-                  cat > ~/.config/waybar/style.css <<'EOF'
-                  * { font-family: sans-serif; font-size: 14px; }
-                  window#waybar { background: #222; color: #fff; }
-                  EOF
-            - name: Configure Sway
-              if: matrix.de == 'sway'
-              run: |
-                  mkdir -p ~/.config/sway
-                  cat > ~/.config/sway/config <<'EOF'
-                  output HEADLESS-1 resolution 1920x1080 position 0,0
-                  # Sway tiles every window by default, so our 200x100 fixture
-                  # gets expanded to fill the whole workspace. Match by HTML
-                  # <title> and force floating + explicit size so it renders at
-                  # its real dimensions. We deliberately do NOT pin a position:
-                  # native Wayland gives the app no control over placement, so
-                  # the compositor decides where the popover lands. Forcing a
-                  # position here would paper over the very limitation this job
-                  # exists to exercise.
-                  for_window [title="menubar visual fixture"] floating enable, resize set 200 100
-                  exec waybar
-                  EOF
-            - name: Run visual test under ${{ matrix.de }}
-              env:
-                  VISUAL_KEY: ${{ matrix.key }}
-                  VISUAL_LABEL: ${{ matrix.label }}
-                  VISUAL_POST_READY_DELAY_MS: ${{ matrix.post_ready_delay || 8000 }}
-                  DE: ${{ matrix.de }}
-              run: |
-                  set -x
-                  export XDG_RUNTIME_DIR=/tmp/xdg-runtime
-                  mkdir -p "$XDG_RUNTIME_DIR"
-                  chmod 700 "$XDG_RUNTIME_DIR"
-                  COMP_ENV="WLR_BACKENDS=headless WLR_HEADLESS_OUTPUTS=1 WLR_LIBINPUT_NO_DEVICES=1"
-                  COMP_CMD="sway"
-                  dbus-run-session -- bash -c "
-                      export XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR
-                      env $COMP_ENV $COMP_CMD &
-                      COMP_PID=\$!
-                      sleep 8
-                      export WAYLAND_DISPLAY=wayland-1
-                      pnpm run test:visual
-                      EXIT=\$?
-                      kill \$COMP_PID 2>/dev/null || true
-                      exit \$EXIT
-                  "
-            - name: Upload artifacts
-              if: always()
-              uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-              with:
-                  name: visual-${{ matrix.key }}
-                  path: test-results/visual/
-                  if-no-files-found: warn
-                  retention-days: 14
+  linux-wayland:
+    name: Visual [${{ matrix.label }}]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    continue-on-error: ${{ matrix.experimental || false }}
+    strategy:
+      fail-fast: false
+      # Hyprland is not in this matrix. Investigation summary (see PR #10):
+      #   - v0.42+ uses Aquamarine, whose allocator hardcodes GBM and has no
+      #     software fallback (Backend.cpp:160-176, TODO open since 2024).
+      #   - v0.41.2 (last wlroots release) asserts wlr_renderer_is_gles2(),
+      #     rejecting wlroots' Pixman fallback when no DRM render node exists.
+      #   - GHA ubuntu-24.04 ships /dev/dri/card1 (hyperv_drm) but that driver
+      #     is modeset-only — no GBM, so wlroots can't create GLES2 against it.
+      #   - vkms (Virtual KMS) is not in the linux-azure kernel modules.
+      # Sway already covers wlroots+Waybar+SNI on this matrix; Hyprland would
+      # need either self-hosted runners with real GPU or KVM nested virt.
+      matrix:
+        include:
+          - de: sway
+            label: Linux (Sway/Waybar)
+            key: linux-sway
+            apt: sway waybar grim
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - name: Install dependencies
+        shell: bash
+        run: |
+          for attempt in 1 2 3; do
+              if pnpm install --frozen-lockfile && node node_modules/electron/install.js && node -e "require('electron')" >/dev/null 2>&1; then exit 0; fi
+              echo "::warning::install/electron-binary attempt $attempt failed; retrying..."
+              rm -rf node_modules/electron 2>/dev/null || true
+              sleep $((attempt * 5))
+          done
+          exit 1
+      - name: Build library
+        run: pnpm run build
+      - name: Install Wayland compositor
+        env:
+          APT_PACKAGES: ${{ matrix.apt }}
+        run: |
+          printf 'Acquire::Retries "3";\nAcquire::http::Timeout "30";\nAcquire::https::Timeout "30";\n' | sudo tee /etc/apt/apt.conf.d/99-fetch-timeouts
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+              dbus-x11 \
+              libgtk-3-0 libnss3 libxss1 libasound2t64 \
+              libgbm1 libatk-bridge2.0-0 libdrm2 \
+              libxtst6 libnotify4 libxrandr2 \
+              libxcomposite1 libxdamage1 libxfixes3 libcups2 \
+              libayatana-appindicator3-1 libdbusmenu-glib4 \
+              $APT_PACKAGES
+      - name: Configure Waybar
+        run: |
+          mkdir -p ~/.config/waybar
+          cat > ~/.config/waybar/config.jsonc <<'EOF'
+          {
+            "layer": "top",
+            "position": "top",
+            "height": 32,
+            "modules-right": ["tray"],
+            "tray": { "icon-size": 22, "spacing": 10 }
+          }
+          EOF
+          cat > ~/.config/waybar/style.css <<'EOF'
+          * { font-family: sans-serif; font-size: 14px; }
+          window#waybar { background: #222; color: #fff; }
+          EOF
+      - name: Configure Sway
+        if: matrix.de == 'sway'
+        run: |
+          mkdir -p ~/.config/sway
+          cat > ~/.config/sway/config <<'EOF'
+          output HEADLESS-1 resolution 1920x1080 position 0,0
+          # Sway tiles every window by default, so our 200x100 fixture
+          # gets expanded to fill the whole workspace. Match by HTML
+          # <title> and force floating + explicit size so it renders at
+          # its real dimensions. We deliberately do NOT pin a position:
+          # native Wayland gives the app no control over placement, so
+          # the compositor decides where the popover lands. Forcing a
+          # position here would paper over the very limitation this job
+          # exists to exercise.
+          for_window [title="menubar visual fixture"] floating enable, resize set 200 100
+          exec waybar
+          EOF
+      - name: Run visual test under ${{ matrix.de }}
+        env:
+          VISUAL_KEY: ${{ matrix.key }}
+          VISUAL_LABEL: ${{ matrix.label }}
+          VISUAL_POST_READY_DELAY_MS: ${{ matrix.post_ready_delay || 8000 }}
+          DE: ${{ matrix.de }}
+        run: |
+          set -x
+          export XDG_RUNTIME_DIR=/tmp/xdg-runtime
+          mkdir -p "$XDG_RUNTIME_DIR"
+          chmod 700 "$XDG_RUNTIME_DIR"
+          COMP_ENV="WLR_BACKENDS=headless WLR_HEADLESS_OUTPUTS=1 WLR_LIBINPUT_NO_DEVICES=1"
+          COMP_CMD="sway"
+          dbus-run-session -- bash -c "
+              export XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR
+              env $COMP_ENV $COMP_CMD &
+              COMP_PID=\$!
+              sleep 8
+              export WAYLAND_DISPLAY=wayland-1
+              pnpm run test:visual
+              EXIT=\$?
+              kill \$COMP_PID 2>/dev/null || true
+              exit \$EXIT
+          "
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: visual-${{ matrix.key }}
+          path: test-results/visual/
+          if-no-files-found: warn
+          retention-days: 14
 
-    windows:
-        name: Visual [${{ matrix.label }}]
-        runs-on: ${{ matrix.runner }}
-        timeout-minutes: 30
-        permissions:
-            contents: read
-        continue-on-error: ${{ matrix.experimental || false }}
-        strategy:
-            fail-fast: false
-            matrix:
-                include:
-                    - runner: windows-2022
-                      label: Windows Server 2022
-                      key: windows-2022
-                    - runner: windows-2025
-                      label: Windows Server 2025
-                      key: windows-2025
-        steps:
-            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-              with:
-                  persist-credentials: false
-            - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
-            - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-              with:
-                  node-version-file: .node-version
-                  cache: pnpm
-            - name: Install dependencies
-              shell: bash
-              run: |
-                  for attempt in 1 2 3; do
-                      if pnpm install --frozen-lockfile && node node_modules/electron/install.js && node -e "require('electron')" >/dev/null 2>&1; then exit 0; fi
-                      echo "::warning::install/electron-binary attempt $attempt failed; retrying..."
-                      rm -rf node_modules/electron 2>/dev/null || true
-                      sleep $((attempt * 5))
-                  done
-                  exit 1
-            - name: Build library
-              run: pnpm run build
-            - name: Set EnableAutoTray=0 (legacy Win10/2022 path, best-effort)
-              shell: pwsh
-              continue-on-error: true
-              run: |
-                  Set-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer' -Name 'EnableAutoTray' -Value 0 -Type DWord -ErrorAction SilentlyContinue
-                  taskkill /F /IM explorer.exe 2>$null; Start-Process explorer; Start-Sleep -Seconds 5
-            - name: Run visual test
-              env:
-                  VISUAL_KEY: ${{ matrix.key }}
-                  VISUAL_LABEL: ${{ matrix.label }}
-                  # Longer settle than the 3000ms default: the frameless fixture
-                  # window is shown at screen-center then moved to (400,200), and
-                  # on the slower Windows runners the capture could land before the
-                  # move fully settled, shifting the painted window a few px between
-                  # runs (a real but cosmetic diff that churned windows-2025).
-                  VISUAL_POST_READY_DELAY_MS: '6000'
-                  VISUAL_PREPARE_CMD: |
-                      Get-ChildItem 'HKCU:\Control Panel\NotifyIconSettings' -ErrorAction SilentlyContinue | ForEach-Object { Set-ItemProperty -Path $_.PSPath -Name IsPromoted -Value 1 -Type DWord -Force };
-                      Set-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced' -Name HideClock -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue;
-                      Set-Service -Name w32time -StartupType Disabled -ErrorAction SilentlyContinue;
-                      Stop-Service -Name w32time -Force -ErrorAction SilentlyContinue;
-                      Set-Date -Date '2026-01-01 00:00:00' -ErrorAction SilentlyContinue;
-                      Stop-Process -Name notepad -Force -ErrorAction SilentlyContinue;
-                      Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue;
-                      Start-Process explorer;
-                      Start-Sleep -Seconds 10
-              run: pnpm run test:visual
-            - name: Upload artifacts
-              if: always()
-              uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-              with:
-                  name: visual-${{ matrix.key }}
-                  path: test-results/visual/
-                  if-no-files-found: warn
-                  retention-days: 14
+  windows:
+    name: Visual [${{ matrix.label }}]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    continue-on-error: ${{ matrix.experimental || false }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-2022
+            label: Windows Server 2022
+            key: windows-2022
+          - runner: windows-2025
+            label: Windows Server 2025
+            key: windows-2025
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - name: Install dependencies
+        shell: bash
+        run: |
+          for attempt in 1 2 3; do
+              if pnpm install --frozen-lockfile && node node_modules/electron/install.js && node -e "require('electron')" >/dev/null 2>&1; then exit 0; fi
+              echo "::warning::install/electron-binary attempt $attempt failed; retrying..."
+              rm -rf node_modules/electron 2>/dev/null || true
+              sleep $((attempt * 5))
+          done
+          exit 1
+      - name: Build library
+        run: pnpm run build
+      - name: Set EnableAutoTray=0 (legacy Win10/2022 path, best-effort)
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          Set-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer' -Name 'EnableAutoTray' -Value 0 -Type DWord -ErrorAction SilentlyContinue
+          taskkill /F /IM explorer.exe 2>$null; Start-Process explorer; Start-Sleep -Seconds 5
+      - name: Run visual test
+        env:
+          VISUAL_KEY: ${{ matrix.key }}
+          VISUAL_LABEL: ${{ matrix.label }}
+          # Longer settle than the 3000ms default: the frameless fixture
+          # window is shown at screen-center then moved to (400,200), and
+          # on the slower Windows runners the capture could land before the
+          # move fully settled, shifting the painted window a few px between
+          # runs (a real but cosmetic diff that churned windows-2025).
+          VISUAL_POST_READY_DELAY_MS: '6000'
+          VISUAL_PREPARE_CMD: |
+            Get-ChildItem 'HKCU:\Control Panel\NotifyIconSettings' -ErrorAction SilentlyContinue | ForEach-Object { Set-ItemProperty -Path $_.PSPath -Name IsPromoted -Value 1 -Type DWord -Force };
+            Set-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced' -Name HideClock -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue;
+            Set-Service -Name w32time -StartupType Disabled -ErrorAction SilentlyContinue;
+            Stop-Service -Name w32time -Force -ErrorAction SilentlyContinue;
+            Set-Date -Date '2026-01-01 00:00:00' -ErrorAction SilentlyContinue;
+            Stop-Process -Name notepad -Force -ErrorAction SilentlyContinue;
+            Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue;
+            Start-Process explorer;
+            Start-Sleep -Seconds 10
+        run: pnpm run test:visual
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: visual-${{ matrix.key }}
+          path: test-results/visual/
+          if-no-files-found: warn
+          retention-days: 14
 
-    update-platforms:
-        name: Update PLATFORMS visual table
-        needs: [macos, linux, linux-wayland, windows]
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        runs-on: ubuntu-latest
-        permissions:
-            contents: write
-            pull-requests: write
-        steps:
-            - name: Checkout
-              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-              with:
-                  persist-credentials: false
-            - name: Setup Node.js
-              uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-              with:
-                  node-version-file: .node-version
-            - name: Download all visual artifacts
-              uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-              with:
-                  pattern: visual-*
-                  merge-multiple: true
-                  path: test-results/visual
-            - name: Install ImageMagick
-              run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends imagemagick
-            - name: Sync screenshots into repo
-              # Refresh a committed screenshot only when the new capture differs
-              # by more pixels than run-to-run cosmetic noise can explain.
-              # The saved PNG is masked to the tray + window rects but keeps
-              # pixels at their absolute screen coordinates, so when the OS places
-              # the tray icon a few pixels off between runs (the macOS menu bar
-              # relayout shifts the status item ~9px; Windows promotes the notify
-              # icon inconsistently) the identical icon diffs against the committed
-              # copy. Measured across recent refreshes this cosmetic churn reaches
-              # ~1700px, and the window's rounded-corner anti-aliasing adds more. A
-              # budget of 100 tripped on every push and opened an empty PR. 5000
-              # clears the cosmetic ceiling while staying far below any real
-              # rendering change. Regression detection does not rely on this gate:
-              # run.mts fails CI when the tray or window is not painted, and the
-              # status column is regenerated from the run JSON every push, so a
-              # real failure still surfaces even when the reference image is kept.
-              env:
-                  DIFF_BUDGET: '5000'
-                  FUZZ: 2%
-              run: |
-                  mkdir -p .github/visual-screenshots
-                  for new in test-results/visual/*.png; do
-                      [ -e "$new" ] || continue
-                      name=$(basename "$new")
-                      cur=".github/visual-screenshots/$name"
-                      if [ ! -f "$cur" ]; then
-                          echo "$name: new platform -> add"
+  update-platforms:
+    name: Update PLATFORMS visual table
+    needs: [macos, linux, linux-wayland, windows]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .node-version
+      - name: Download all visual artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: visual-*
+          merge-multiple: true
+          path: test-results/visual
+      - name: Install ImageMagick
+        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends imagemagick
+      - name: Sync screenshots into repo
+        # Refresh a committed screenshot only when the new capture differs
+        # by more pixels than run-to-run cosmetic noise can explain.
+        # The saved PNG is masked to the tray + window rects but keeps
+        # pixels at their absolute screen coordinates, so when the OS places
+        # the tray icon a few pixels off between runs (the macOS menu bar
+        # relayout shifts the status item ~9px; Windows promotes the notify
+        # icon inconsistently) the identical icon diffs against the committed
+        # copy. Measured across recent refreshes this cosmetic churn reaches
+        # ~1700px, and the window's rounded-corner anti-aliasing adds more. A
+        # budget of 100 tripped on every push and opened an empty PR. 5000
+        # clears the cosmetic ceiling while staying far below any real
+        # rendering change. Regression detection does not rely on this gate:
+        # run.mts fails CI when the tray or window is not painted, and the
+        # status column is regenerated from the run JSON every push, so a
+        # real failure still surfaces even when the reference image is kept.
+        env:
+          DIFF_BUDGET: '5000'
+          FUZZ: 2%
+        run: |
+          mkdir -p .github/visual-screenshots
+          for new in test-results/visual/*.png; do
+              [ -e "$new" ] || continue
+              name=$(basename "$new")
+              cur=".github/visual-screenshots/$name"
+              if [ ! -f "$cur" ]; then
+                  echo "$name: new platform -> add"
+                  cp "$new" "$cur"
+                  continue
+              fi
+              # AE prints the differing-pixel count, optionally followed by
+              # a normalized value in parentheses ("256 (0.00032)"). Keep the
+              # leading integer; anything else (error text, empty) -> update.
+              raw=$(compare -metric AE -fuzz "$FUZZ" "$cur" "$new" null: 2>&1 || true)
+              diff_px=${raw%%[!0-9]*}
+              case "$diff_px" in
+                  '' | *[!0-9]*)
+                      echo "$name: compare error or dimension change ($raw) -> update"
+                      cp "$new" "$cur" ;;
+                  *)
+                      if [ "$diff_px" -gt "$DIFF_BUDGET" ]; then
+                          echo "$name: $diff_px px changed (> $DIFF_BUDGET) -> update"
                           cp "$new" "$cur"
-                          continue
-                      fi
-                      # AE prints the differing-pixel count, optionally followed by
-                      # a normalized value in parentheses ("256 (0.00032)"). Keep the
-                      # leading integer; anything else (error text, empty) -> update.
-                      raw=$(compare -metric AE -fuzz "$FUZZ" "$cur" "$new" null: 2>&1 || true)
-                      diff_px=${raw%%[!0-9]*}
-                      case "$diff_px" in
-                          '' | *[!0-9]*)
-                              echo "$name: compare error or dimension change ($raw) -> update"
-                              cp "$new" "$cur" ;;
-                          *)
-                              if [ "$diff_px" -gt "$DIFF_BUDGET" ]; then
-                                  echo "$name: $diff_px px changed (> $DIFF_BUDGET) -> update"
-                                  cp "$new" "$cur"
-                              else
-                                  echo "$name: $diff_px px changed (<= $DIFF_BUDGET) -> keep committed"
-                              fi ;;
-                      esac
-                  done
-                  ls -la .github/visual-screenshots/
-            - name: Regenerate visual block
-              run: node tests/visual/update-platforms.mts
-            - name: Open PR if changed
-              uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
-              with:
-                  commit-message: "docs: refresh visual tray rendering table"
-                  title: "docs: refresh visual tray rendering table"
-                  body: |
-                      Auto-generated update to `PLATFORMS.md` from the latest visual tray rendering run on `main`.
+                      else
+                          echo "$name: $diff_px px changed (<= $DIFF_BUDGET) -> keep committed"
+                      fi ;;
+              esac
+          done
+          ls -la .github/visual-screenshots/
+      - name: Regenerate visual block
+        run: node tests/visual/update-platforms.mts
+      - name: Setup pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - name: Format platform report
+        run: |
+          pnpm install --frozen-lockfile --ignore-scripts
+          pnpm exec oxfmt PLATFORMS.md
+      - name: Open PR if changed
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
+        with:
+          commit-message: 'docs: refresh visual tray rendering table'
+          title: 'docs: refresh visual tray rendering table'
+          body: |
+            Auto-generated update to `PLATFORMS.md` from the latest visual tray rendering run on `main`.
 
-                      Source: [Visual Tray workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}).
-                  branch: chore/update-visual-platforms-table
-                  base: main
-                  delete-branch: true
-                  add-paths: |
-                      PLATFORMS.md
-                      .github/visual-screenshots/*.png
-                  sign-commits: true
+            Source: [Visual Tray workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}).
+          branch: chore/update-visual-platforms-table
+          base: main
+          delete-branch: true
+          add-paths: |
+            PLATFORMS.md
+            .github/visual-screenshots/*.png
+          sign-commits: true
