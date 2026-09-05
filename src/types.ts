@@ -57,11 +57,12 @@ export interface Options {
    */
   globalShortcut?: Electron.Accelerator;
   /**
-   * Hide the window when it loses focus, independently of its stacking level.
-   * When omitted, always-on-top windows stay open and other windows hide.
-   * Set to `true` for an always-on-top popup that should dismiss on click-away,
-   * or `false` to emit `focus-lost` without hiding. Can be changed at runtime
-   * with {@link Menubar.setOption}.
+   * Hide the popup when it loses focus. Defaults to `true`, including when
+   * `browserWindow.alwaysOnTop` is set. Set to `false` to keep the popup open
+   * and on top, emitting `focus-lost` instead of hiding. Menubar manages the
+   * stacking level on each platform, including the Windows tray overflow.
+   * DevTools temporarily keeps the popup open without changing this option.
+   * Can be changed before or after window creation with {@link Menubar.setOption}.
    */
   hideOnBlur?: boolean;
   /**

@@ -86,14 +86,18 @@ test('toggleWindow alternates visibility', async () => {
 
 test('an elevated Windows popup dismisses on click-away without losing its stacking level', async () => {
   test.skip(process.platform !== 'win32', 'Windows tray overflow regression');
-  const app = await launchFixture('hideOnBlur');
+  const app = await launchFixture();
   try {
     await waitForReady(app);
     await app.evaluate(async () => {
       const mb = (globalThis as MenubarGlobal).__menubar!;
-      mb.window!.setAlwaysOnTop(true, 'pop-up-menu');
       await mb.showWindow();
     });
+    expect(
+      await app.evaluate(() =>
+        (globalThis as MenubarGlobal).__menubar!.window!.isAlwaysOnTop(),
+      ),
+    ).toBe(true);
     await expect
       .poll(() =>
         app.evaluate(() =>
@@ -152,6 +156,108 @@ test('hideOnClose: window survives a close() call', async () => {
   expect(result.isVisible).toBe(false);
 
   await app.close();
+});
+
+test('keep-open changes survive DevTools and restore click-away dismissal', async () => {
+  const app = await launchFixture();
+  try {
+    await waitForReady(app);
+    await app.evaluate(async () => {
+      const mb = (globalThis as MenubarGlobal).__menubar!;
+      await mb.showWindow();
+      mb.window!.webContents.openDevTools({ mode: 'detach' });
+    });
+    await expect
+      .poll(() =>
+        app.evaluate(() =>
+          (
+            globalThis as MenubarGlobal
+          ).__menubar!.window!.webContents.isDevToolsOpened(),
+        ),
+      )
+      .toBe(true);
+    const whileDebugging = await app.evaluate(() => {
+      const mb = (globalThis as MenubarGlobal).__menubar!;
+      mb.setOption('hideOnBlur', false);
+      mb.setOption('hideOnBlur', true);
+      return {
+        visible: mb.window!.isVisible(),
+        onTop: mb.window!.isAlwaysOnTop(),
+        hideOnBlur: mb.getOption('hideOnBlur'),
+      };
+    });
+    expect(whileDebugging).toEqual({
+      visible: true,
+      onTop: true,
+      hideOnBlur: true,
+    });
+
+    await app.evaluate(() => {
+      const mb = (globalThis as MenubarGlobal).__menubar!;
+      mb.window!.webContents.closeDevTools();
+    });
+    await expect
+      .poll(() =>
+        app.evaluate(() =>
+          (
+            globalThis as MenubarGlobal
+          ).__menubar!.window!.webContents.isDevToolsOpened(),
+        ),
+      )
+      .toBe(false);
+    await app.evaluate(async () => {
+      const mb = (globalThis as MenubarGlobal).__menubar!;
+      mb.setOption('hideOnBlur', false);
+      await mb.showWindow();
+    });
+    await expect
+      .poll(() =>
+        app.evaluate(() =>
+          (globalThis as MenubarGlobal).__menubar!.window!.isFocused(),
+        ),
+      )
+      .toBe(true);
+    await new Promise((resolve) => setTimeout(resolve, 450));
+    await app.evaluate(({ BrowserWindow }) => {
+      const other = new BrowserWindow({ width: 200, height: 200 });
+      other.show();
+      other.focus();
+    });
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    expect(
+      await app.evaluate(() =>
+        (globalThis as MenubarGlobal).__menubar!.window!.isVisible(),
+      ),
+    ).toBe(true);
+
+    await app.evaluate(async () => {
+      const mb = (globalThis as MenubarGlobal).__menubar!;
+      mb.setOption('hideOnBlur', true);
+      await mb.showWindow();
+    });
+    await expect
+      .poll(() =>
+        app.evaluate(() =>
+          (globalThis as MenubarGlobal).__menubar!.window!.isFocused(),
+        ),
+      )
+      .toBe(true);
+    await new Promise((resolve) => setTimeout(resolve, 450));
+    await app.evaluate(({ BrowserWindow }) => {
+      const other = new BrowserWindow({ width: 200, height: 200 });
+      other.show();
+      other.focus();
+    });
+    await expect
+      .poll(() =>
+        app.evaluate(() =>
+          (globalThis as MenubarGlobal).__menubar!.window!.isVisible(),
+        ),
+      )
+      .toBe(false);
+  } finally {
+    await app.close();
+  }
 });
 
 test('globalShortcut registers the configured accelerator', async () => {
