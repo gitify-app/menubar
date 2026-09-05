@@ -11,6 +11,10 @@ const options = {
 };
 
 switch (scenario) {
+  case 'hideOnBlur':
+    options.hideOnBlur = true;
+    options.browserWindow.alwaysOnTop = true;
+    break;
   case 'hideOnClose':
     options.hideOnClose = true;
     break;

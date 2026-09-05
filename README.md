@@ -100,7 +100,7 @@ You can pass an optional options object into the `menubar({ ... })` function:
 | --- | --- | --- |
 | `dir` | `process.cwd()` | The app source directory. |
 | `index` | `file:// + opts.dir + index.html` | The URL to load the menubar's `browserWindow` with. The url can be a remote address (e.g. `http://`) or a path to a local HTML file using the `file://` protocol. |
-| `browserWindow` | | BrowserWindow options passed to the BrowserWindow constructor, see [Electron docs][electron-docs-browserwindow-options]. <details><summary>Useful fields</summary>• `x` (default `undefined`) - the x position of the window<br>• `y` (default `undefined`) - the y position of the window<br>• `width` (default `400`) - window width<br>• `height` (default `400`) - window height<br>• `alwaysOnTop` (default `false`) - if `true`, the window will not hide on blur</details> |
+| `browserWindow` | | BrowserWindow options passed to the BrowserWindow constructor, see [Electron docs][electron-docs-browserwindow-options]. <details><summary>Useful fields</summary>• `x` (default `undefined`) - the x position of the window<br>• `y` (default `undefined`) - the y position of the window<br>• `width` (default `400`) - window width<br>• `height` (default `400`) - window height<br>• `alwaysOnTop` (default `false`) - if `true`, the window will not hide on blur unless `hideOnBlur` is explicitly `true`</details> |
 | `icon` | `opts.dir + IconTemplate.png` | The png icon to use for the menubar. A good size to start with is 20x20. To support retina, supply a 2x sized image (e.g. 40x40) with `@2x` added to the end of the name, so `icon.png` and `icon@2x.png`, and Electron will automatically use your `@2x` version on retina screens. |
 | `tooltip` | empty | Menubar tray icon tooltip text. |
 | `tray` | created on-the-fly | An Electron `Tray` instance. If provided, `opts.icon` will be ignored. |
@@ -112,6 +112,7 @@ You can pass an optional options object into the `menubar({ ... })` function:
 | `trigger` | `'click'` | Tray event that toggles the menubar window. One of `'click'`, `'right-click'`, or `'none'`. Use `'none'` to disable automatic toggling, useful when a single tray icon serves multiple windows. The window can still be shown by calling `mb.showWindow()` directly. |
 | `showOnRightClick` | `false` | **Deprecated**, use `trigger: 'right-click'` instead. Show the window on `right-click` event instead of regular `click`. |
 | `contextMenu` | | An Electron `Menu` to attach to the tray icon. <details><summary>Platform behavior</summary>On Linux it is bound via `tray.setContextMenu` (required by libappindicator / StatusNotifierItem) and re-published on every show/hide to defeat the indicator's menu cache. On macOS and Windows it pops up on right-click via `tray.popUpContextMenu`, so left-click continues to toggle the window. Combine with `trigger: 'none'` if you want right-click to be the only interaction.</details> |
+| `hideOnBlur` | inferred from `alwaysOnTop` | Set `true` to hide on click-away even when the window is always on top, or `false` to emit `focus-lost` and stay open. Omit to preserve the default: always-on-top windows stay open, other windows hide. Supports runtime changes through `setOption`. |
 | `hideOnClose` | `false` | Hide the window on `close` instead of destroying it, so the next tray click re-uses the same `BrowserWindow`. <details><summary>Platform notes</summary>On Linux/Wayland the hide is deferred via `setImmediate` to work around a compositor bug that leaves frameless surfaces in a half-closed state when hidden synchronously from the `close` handler. The library tracks the app's `before-quit` event and the auto updater's `before-quit-for-update` event internally, so real quits and update restarts go through unimpeded.</details> |
 | `escapeToHide` | `false` | Hide the menubar window when the user presses `Escape` while it has focus. |
 | `ignoreDoubleClickEvents` | `true` (macOS only) | Calls `tray.setIgnoreDoubleClickEvents(true)` so an accidental double-click doesn't race the close-on-blur handler and flicker the tray icon. Pass `false` to opt out. No-op on Linux/Windows. |
@@ -132,7 +133,7 @@ The `Menubar` class is an event emitter:
 | `hide` | The line before `window.hide()` is called (on window blur). |
 | `after-hide` | The line after `window.hide()` is called. |
 | `after-close` | After the `.window` (BrowserWindow) property has been deleted. |
-| `focus-lost` | Emitted if the always-on-top option is set and the user clicks away. |
+| `focus-lost` | Emitted on click-away when `hideOnBlur` is `false`, or when it is omitted and the window is always on top. |
 
 ## Tips
 

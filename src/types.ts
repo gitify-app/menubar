@@ -57,6 +57,14 @@ export interface Options {
    */
   globalShortcut?: Electron.Accelerator;
   /**
+   * Hide the window when it loses focus, independently of its stacking level.
+   * When omitted, always-on-top windows stay open and other windows hide.
+   * Set to `true` for an always-on-top popup that should dismiss on click-away,
+   * or `false` to emit `focus-lost` without hiding. Can be changed at runtime
+   * with {@link Menubar.setOption}.
+   */
+  hideOnBlur?: boolean;
+  /**
    * Hide the window on `close` instead of letting it be destroyed, so the
    * next tray click re-uses the same {@link BrowserWindow} instance. On
    * Linux/Wayland the hide is deferred via `setImmediate` to work around a
