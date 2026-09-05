@@ -4,22 +4,19 @@ All notable changes to this project will be documented in this file. Releases ar
 
 ## [10.3.0](https://github.com/gitify-app/electron-menubar/compare/v10.2.1...v10.3.0) (2026-09-05)
 
-
 ### 🚀 Features
 
-* distinguish the Windows taskbar from desktop docks ([#178](https://github.com/gitify-app/electron-menubar/issues/178)) ([425eb45](https://github.com/gitify-app/electron-menubar/commit/425eb45959018f5ff9b480d120db573b686be724))
-
+- distinguish the Windows taskbar from desktop docks ([#178](https://github.com/gitify-app/electron-menubar/issues/178)) ([425eb45](https://github.com/gitify-app/electron-menubar/commit/425eb45959018f5ff9b480d120db573b686be724))
 
 ### 🐛 Bug Fixes
 
-* allow elevated popups to dismiss on blur ([#173](https://github.com/gitify-app/electron-menubar/issues/173)) ([722642c](https://github.com/gitify-app/electron-menubar/commit/722642cd4a5e9d05b61fe6721f6c21ae046b9cf1))
-* distinguish the Windows taskbar from desktop docks ([425eb45](https://github.com/gitify-app/electron-menubar/commit/425eb45959018f5ff9b480d120db573b686be724))
-
+- allow elevated popups to dismiss on blur ([#173](https://github.com/gitify-app/electron-menubar/issues/173)) ([722642c](https://github.com/gitify-app/electron-menubar/commit/722642cd4a5e9d05b61fe6721f6c21ae046b9cf1))
+- distinguish the Windows taskbar from desktop docks ([425eb45](https://github.com/gitify-app/electron-menubar/commit/425eb45959018f5ff9b480d120db573b686be724))
 
 ### 📚 Documentation
 
-* explain the fork improvements over menubar ([#174](https://github.com/gitify-app/electron-menubar/issues/174)) ([0c4a534](https://github.com/gitify-app/electron-menubar/commit/0c4a5344ba48b16a9a2d654b4d8caa9408fe9ec0))
-* explain the fork's improvements over menubar ([0c4a534](https://github.com/gitify-app/electron-menubar/commit/0c4a5344ba48b16a9a2d654b4d8caa9408fe9ec0))
+- explain the fork improvements over menubar ([#174](https://github.com/gitify-app/electron-menubar/issues/174)) ([0c4a534](https://github.com/gitify-app/electron-menubar/commit/0c4a5344ba48b16a9a2d654b4d8caa9408fe9ec0))
+- explain the fork's improvements over menubar ([0c4a534](https://github.com/gitify-app/electron-menubar/commit/0c4a5344ba48b16a9a2d654b4d8caa9408fe9ec0))
 
 ## [10.2.1](https://github.com/gitify-app/electron-menubar/compare/v10.2.0...v10.2.1) (2026-08-20)
 
