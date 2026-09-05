@@ -84,6 +84,49 @@ test('toggleWindow alternates visibility', async () => {
   await app.close();
 });
 
+test('an elevated Windows popup dismisses on click-away without losing its stacking level', async () => {
+  test.skip(process.platform !== 'win32', 'Windows tray overflow regression');
+  const app = await launchFixture('hideOnBlur');
+  try {
+    await waitForReady(app);
+    await app.evaluate(async () => {
+      const mb = (globalThis as MenubarGlobal).__menubar!;
+      mb.window!.setAlwaysOnTop(true, 'pop-up-menu');
+      await mb.showWindow();
+    });
+    await expect
+      .poll(() =>
+        app.evaluate(() =>
+          (globalThis as MenubarGlobal).__menubar!.window!.isFocused(),
+        ),
+      )
+      .toBe(true);
+
+    // Let the Windows post-show blur grace expire before a real focus transfer.
+    await new Promise((resolve) => setTimeout(resolve, 450));
+    await app.evaluate(({ BrowserWindow }) => {
+      const other = new BrowserWindow({ width: 200, height: 200 });
+      other.show();
+      other.focus();
+    });
+
+    await expect
+      .poll(() =>
+        app.evaluate(() =>
+          (globalThis as MenubarGlobal).__menubar!.window!.isVisible(),
+        ),
+      )
+      .toBe(false);
+    expect(
+      await app.evaluate(() =>
+        (globalThis as MenubarGlobal).__menubar!.window!.isAlwaysOnTop(),
+      ),
+    ).toBe(true);
+  } finally {
+    await app.close();
+  }
+});
+
 test('hideOnClose: window survives a close() call', async () => {
   const app = await launchFixture('hideOnClose');
   await waitForReady(app);

@@ -849,21 +849,24 @@ describe('Menubar blur-to-hide behavior', () => {
     return call?.[1] as ((...args: unknown[]) => void) | undefined;
   };
 
-  it('hides the window ~100ms after a blur on non-Windows platforms', async () => {
-    Object.defineProperty(process, 'platform', { value: 'darwin' });
-    const mb = new Menubar(app, { preloadWindow: true });
-    await ready(mb);
-    await mb.showWindow();
+  it.each(['darwin', 'linux'])(
+    'hides the window ~100ms after a blur on %s',
+    async (platform) => {
+      Object.defineProperty(process, 'platform', { value: platform });
+      const mb = new Menubar(app, { preloadWindow: true });
+      await ready(mb);
+      await mb.showWindow();
 
-    vi.useFakeTimers();
-    const blur = findHandler(mb.window!, 'blur');
-    expect(blur, 'a blur handler should be registered').toBeDefined();
+      vi.useFakeTimers();
+      const blur = findHandler(mb.window!, 'blur');
+      expect(blur, 'a blur handler should be registered').toBeDefined();
 
-    blur!();
-    expect(mb.window!.hide).not.toHaveBeenCalled();
-    vi.advanceTimersByTime(100);
-    expect(mb.window!.hide).toHaveBeenCalledTimes(1);
-  });
+      blur!();
+      expect(mb.window!.hide).not.toHaveBeenCalled();
+      vi.advanceTimersByTime(100);
+      expect(mb.window!.hide).toHaveBeenCalledTimes(1);
+    },
+  );
 
   it('ignores the transient post-show blur on Windows (gitify-app/gitify#3064)', async () => {
     Object.defineProperty(process, 'platform', { value: 'win32' });
@@ -896,20 +899,113 @@ describe('Menubar blur-to-hide behavior', () => {
     expect(mb.window!.hide).toHaveBeenCalledTimes(1);
   });
 
-  it('emits `focus-lost` instead of hiding when the window is pinned alwaysOnTop', async () => {
+  it.each(['win32', 'darwin', 'linux'])(
+    'preserves default always-on-top pinning on %s',
+    async (platform) => {
+      Object.defineProperty(process, 'platform', { value: platform });
+      const mb = new Menubar(app, { preloadWindow: true });
+      await ready(mb);
+      await mb.showWindow();
+
+      (mb.window!.isAlwaysOnTop as Mock).mockReturnValue(true);
+      const focusLost = vi.fn();
+      mb.on('focus-lost', focusLost);
+
+      findHandler(mb.window!, 'blur')!();
+
+      expect(focusLost).toHaveBeenCalledTimes(1);
+      expect(mb.window!.hide).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(['win32', 'darwin', 'linux'])(
+    'hides an always-on-top popup with hideOnBlur enabled on %s',
+    async (platform) => {
+      Object.defineProperty(process, 'platform', { value: platform });
+      const mb = new Menubar(app, { preloadWindow: true });
+      await ready(mb);
+      mb.setOption('hideOnBlur', true);
+      (mb.window!.isAlwaysOnTop as Mock).mockReturnValue(true);
+      const focusLost = vi.fn();
+      mb.on('focus-lost', focusLost);
+      vi.useFakeTimers();
+      await mb.showWindow();
+      vi.advanceTimersByTime(1000);
+
+      findHandler(mb.window!, 'blur')!();
+      expect(mb.window!.hide).not.toHaveBeenCalled();
+      vi.advanceTimersByTime(100);
+
+      expect(mb.window!.hide).toHaveBeenCalledTimes(1);
+      expect(focusLost).not.toHaveBeenCalled();
+    },
+  );
+
+  it('keeps an elevated Windows popup visible through the post-show blur', async () => {
+    Object.defineProperty(process, 'platform', { value: 'win32' });
     const mb = new Menubar(app, { preloadWindow: true });
     await ready(mb);
-    await mb.showWindow();
-
+    mb.setOption('hideOnBlur', true);
     (mb.window!.isAlwaysOnTop as Mock).mockReturnValue(true);
     const focusLost = vi.fn();
     mb.on('focus-lost', focusLost);
+    vi.useFakeTimers();
+    await mb.showWindow();
 
     findHandler(mb.window!, 'blur')!();
+    vi.advanceTimersByTime(100);
 
-    expect(focusLost).toHaveBeenCalledTimes(1);
     expect(mb.window!.hide).not.toHaveBeenCalled();
+    expect(focusLost).not.toHaveBeenCalled();
   });
+
+  it.each(['win32', 'darwin', 'linux'])(
+    'changes click-away behavior without changing stacking on %s',
+    async (platform) => {
+      Object.defineProperty(process, 'platform', { value: platform });
+      const mb = new Menubar(app, { preloadWindow: true });
+      await ready(mb);
+      (mb.window!.isAlwaysOnTop as Mock).mockReturnValue(true);
+      const focusLost = vi.fn();
+      mb.on('focus-lost', focusLost);
+      vi.useFakeTimers();
+      await mb.showWindow();
+      vi.advanceTimersByTime(1000);
+      mb.setOption('hideOnBlur', false);
+
+      findHandler(mb.window!, 'blur')!();
+      vi.advanceTimersByTime(100);
+      expect(focusLost).toHaveBeenCalledTimes(1);
+      expect(mb.window!.hide).not.toHaveBeenCalled();
+
+      mb.setOption('hideOnBlur', true);
+      findHandler(mb.window!, 'blur')!();
+      vi.advanceTimersByTime(100);
+      expect(mb.window!.hide).toHaveBeenCalledTimes(1);
+      expect(mb.window!.isAlwaysOnTop()).toBe(true);
+    },
+  );
+
+  it.each(['win32', 'darwin', 'linux'])(
+    'emits focus-lost for a normal window with hideOnBlur disabled on %s',
+    async (platform) => {
+      Object.defineProperty(process, 'platform', { value: platform });
+      const mb = new Menubar(app, { preloadWindow: true });
+      await ready(mb);
+      mb.setOption('hideOnBlur', false);
+      const focusLost = vi.fn();
+      mb.on('focus-lost', focusLost);
+      vi.useFakeTimers();
+      await mb.showWindow();
+      vi.advanceTimersByTime(1000);
+
+      findHandler(mb.window!, 'blur')!();
+      vi.advanceTimersByTime(100);
+
+      expect(focusLost).toHaveBeenCalledTimes(1);
+      expect(mb.window!.hide).not.toHaveBeenCalled();
+    },
+  );
 });
 
 describe('Menubar dock hide startup race', () => {

@@ -625,9 +625,11 @@ export class Menubar extends EventEmitter {
         return;
       }
 
-      // The window was pinned (e.g. a host "keep open on blur" preference);
-      // don't auto-hide, just surface the event for the host app to react to.
-      if (this._browserWindow.isAlwaysOnTop()) {
+      // Preserve the legacy pin behavior unless the host explicitly separates
+      // click-away dismissal from the window's stacking level.
+      const hideOnBlur =
+        this._options.hideOnBlur ?? !this._browserWindow.isAlwaysOnTop();
+      if (!hideOnBlur) {
         this.emit('focus-lost');
         return;
       }
